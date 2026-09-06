@@ -232,9 +232,7 @@ function SignInScreen({ onSwitchToSignUp }) {
     }
     setBusy(true)
     setError(null)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    })
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
     setBusy(false)
     if (error) setError(friendlyAuthError(error.message))
     else setNotice('If that email exists, a password reset link has been sent.')
@@ -300,11 +298,7 @@ function SignUpScreen({ onSwitchToSignIn }) {
     setBusy(true)
     setError(null)
     setNotice(null)
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: window.location.origin },
-    })
+    const { error } = await supabase.auth.signUp({ email, password })
     setBusy(false)
     if (error) setError(friendlyAuthError(error.message))
     else setNotice('Account created. Check your email to confirm, then sign in.')
