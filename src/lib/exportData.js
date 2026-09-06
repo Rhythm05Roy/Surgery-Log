@@ -1,3 +1,5 @@
+import { ageLabel } from './format.js'
+
 function cell(value) {
   const s = value === null || value === undefined ? '' : String(value)
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
@@ -18,13 +20,13 @@ export function recordsToCsv(records) {
     'Diagnosis',
     'OT',
     'Assist Position',
-    'Consultant',
+    'Consultant/Surgeon',
     'Attachments',
   ]
   const rows = records.map((r) => [
     r.date || '',
     r.patientName || '',
-    r.age ?? '',
+    ageLabel(r),
     r.diagnosis || '',
     r.otName || '',
     r.assistPositionName || '',
@@ -70,4 +72,6 @@ export function downloadFile(filename, content, mime = 'text/csv;charset=utf-8')
   URL.revokeObjectURL(url)
 }
 
-export const dateStamp = () => new Date().toISOString().slice(0, 10)
+export function dateStamp() {
+  return new Date().toISOString().slice(0, 10)
+}

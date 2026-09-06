@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
-import { uid } from '../lib/db.js'
+
+const norm = (s) => String(s || '').trim().toLowerCase()
 
 export default function Combobox({
   label,
@@ -12,18 +13,16 @@ export default function Combobox({
   addLabel,
   required,
 }) {
-  const [query, setQuery] = useState('')
+  const [text, setText] = useState(value?.name ?? '')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
-  const rootRef = useRef(null)
+  const [err, setErr] = useState(null)
   const inputRef = useRef(null)
+  const rootRef = useRef(null)
 
-  const filtered = options.filter((o) =>
-    o.name.toLowerCase().includes(query.toLowerCase()),
-  )
-  const canAdd = query.trim() && !options.some(
-    (o) => o.name.toLowerCase() === query.trim().toLowerCase(),
-  )
+  useEffect(() => {
+    setText(value?.name ?? '')
+  }, [value?.name])
 
   useEffect(() => {
     const onClick = (e) => {
@@ -35,43 +34,70 @@ export default function Combobox({
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
+  const query = text.trim()
+  const matches = (options || []).filter((o) =>
+    o.name.toLowerCase().includes(query.toLowerCase()),
+  )
+  const exact = matches.find((o) => norm(o.name) === norm(query))
+  const canAdd =
+    query.length > 0 &&
+    !exact &&
+    !(options || []).some((o) => norm(o.name) === norm(query))
+
   const select = (opt) => {
     onChange(opt)
-    setQuery('')
+    setText(opt.name)
     setOpen(false)
   }
 
   const addNew = async () => {
-    const name = query.trim()
-    if (!name) return
-    const item = onAdd ? await onAdd(name) : { id: uid(), name }
-    if (item) select(item)
+    if (!canAdd) return
+    setErr(null)
+    try {
+      const item = onAdd ? await onAdd(query) : { id: 'tmp-' + Date.now(), name: query }
+      if (item) select(item)
+    } catch (e) {
+      setErr(e?.message || 'Could not add')
+    }
   }
 
-  const onInputKeyDown = (e) => {
-    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      setOpen(true)
-      return
-    }
+  const commit = () => {
+    if (exact) select(exact)
+    else if (matches.length) select(matches[0])
+    else if (canAdd) addNew()
+  }
+
+  const onKeyDown = (e) => {
+    const total = matches.length + (canAdd ? 1 : 0)
     if (e.key === 'Escape') {
       setOpen(false)
+      setText(value?.name ?? '')
       inputRef.current?.blur()
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
-      const count = filtered.length + (canAdd ? 1 : 0)
-      setHighlight((h) => (h + 1) % Math.max(count, 1))
+      setOpen(true)
+      setHighlight((h) => (h + 1) % Math.max(total, 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      const count = filtered.length + (canAdd ? 1 : 0)
-      setHighlight((h) => (h - 1 + Math.max(count, 1)) % Math.max(count, 1))
+      setOpen(true)
+      setHighlight((h) => (h - 1 + Math.max(total, 1)) % Math.max(total, 1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (canAdd && highlight >= filtered.length) {
-        addNew()
-      } else if (filtered.length) {
-        select(filtered[Math.min(highlight, filtered.length - 1)])
-      }
+      commit()
+    } else if (e.key === 'Tab') {
+      setOpen(false)
     }
+  }
+
+  const onBlur = () => {
+    setOpen(false)
+    const vName = value?.name ? norm(value.name) : ''
+    const q = norm(query)
+    if (vName && exact && q !== vName) {
+      select(exact)
+      return
+    }
+    if (vName && q !== vName && !canAdd) setText(value.name)
   }
 
   return (
@@ -82,39 +108,29 @@ export default function Combobox({
           {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
-      <div
-        className="input flex items-center cursor-pointer"
-        onClick={() => {
-          setOpen(true)
-          inputRef.current?.focus()
-        }}
-      >
-        {value ? (
-          <span className="flex-1 truncate">{value.name}</span>
-        ) : (
-          <span className="flex-1 truncate text-slate-400">
-            {placeholder || 'Select or type to add'}
-          </span>
-        )}
-        <ChevronDown className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          className="input !pr-8"
+          placeholder={placeholder || 'Select or type'}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value)
+            setErr(null)
+            setHighlight(0)
+          }}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+          onBlur={onBlur}
+        />
+        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
       </div>
+
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-60 overflow-auto">
-          <div className="p-2 border-b border-slate-100">
-            <input
-              ref={inputRef}
-              autoFocus
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                setHighlight(0)
-              }}
-              onKeyDown={onInputKeyDown}
-              placeholder="Search or type new…"
-              className="w-full text-sm outline-none border border-slate-200 rounded-md px-2 py-1.5 focus:border-primary-500"
-            />
-          </div>
-          {filtered.map((opt, i) => (
+          {matches.map((opt, i) => (
             <button
               key={opt.id}
               type="button"
@@ -136,26 +152,27 @@ export default function Combobox({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={addNew}
-              onMouseEnter={() => setHighlight(filtered.length)}
+              onMouseEnter={() => setHighlight(matches.length)}
               className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 border-t border-slate-100 ${
-                highlight === filtered.length
+                highlight === matches.length
                   ? 'bg-primary-50 text-primary-700'
                   : 'text-primary-600'
               }`}
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span className="truncate">
-                Add {addLabel ? `"${query.trim()}"` : query.trim()}
+                Add {addLabel ? `"${query}"` : query}
               </span>
             </button>
           )}
-          {!filtered.length && !canAdd && (
+          {!matches.length && !canAdd && (
             <div className="px-3 py-2 text-sm text-slate-400">
               {query ? 'No match' : 'No options yet'}
             </div>
           )}
         </div>
       )}
+      {err && <p className="text-xs text-red-600 mt-1">{err}</p>}
     </div>
   )
 }

@@ -6,11 +6,11 @@ import { init } from '../lib/db.js'
 function Brand() {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-600/25">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-xl shadow-primary-600/30">
         <Scissors className="w-7 h-7 text-white" />
       </div>
       <div className="mt-4">
-        <div className="text-xl font-semibold text-slate-900">OT Log</div>
+        <div className="text-xl font-semibold tracking-tight text-slate-900">OT Log</div>
         <div className="text-sm text-slate-500">Surgery Records</div>
       </div>
     </div>
@@ -80,18 +80,24 @@ export default function AuthGate({ children }) {
 
   if (mode === 'loading')
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Brand />
       </div>
     )
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+    <div className="relative min-h-screen flex items-center justify-center px-4 py-10">
+      <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-32 w-[26rem] h-[26rem] rounded-full bg-primary-500/15 blur-3xl" />
+        <div className="absolute top-1/3 -right-40 w-[30rem] h-[30rem] rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -bottom-48 left-1/3 w-[28rem] h-[28rem] rounded-full bg-indigo-400/10 blur-3xl" />
+      </div>
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-6">
           <Brand />
         </div>
-        <div className="card p-6 sm:p-7">
+        <div className="card relative overflow-hidden p-6 sm:p-7">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary-500 via-sky-400 to-emerald-400" />
           {mode === 'signin' && <SignInScreen onSwitchToSignUp={() => setMode('signup')} />}
           {mode === 'signup' && <SignUpScreen onSwitchToSignIn={() => setMode('signin')} />}
           {mode === 'recovery' && <RecoveryScreen onDone={() => setMode('signin')} />}

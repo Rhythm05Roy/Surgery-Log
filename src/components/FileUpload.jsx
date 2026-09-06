@@ -2,25 +2,32 @@ import { useRef, useState } from 'react'
 import { Paperclip, FileText, Trash2, Eye } from 'lucide-react'
 import { uid } from '../lib/db.js'
 import { useAttachment, openAttachment } from '../lib/hooks.js'
+import { compressImage, dataUrlByteSize } from '../lib/image.js'
 
 const MAX_FILE_MB = 10
 
 async function fileToAttachment(file) {
-  if (file.size > MAX_FILE_MB * 1024 * 1024) {
+  const isImage = file.type.startsWith('image/')
+  if (!isImage && file.size > MAX_FILE_MB * 1024 * 1024) {
     throw new Error(`${file.name} is larger than ${MAX_FILE_MB}MB`)
   }
-  const dataUrl = await new Promise((resolve, reject) => {
+  const rawDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result)
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
-  const isImage = file.type.startsWith('image/')
+  let dataUrl = rawDataUrl
+  let type = file.type
+  if (isImage) {
+    dataUrl = await compressImage(rawDataUrl)
+    type = 'image/jpeg'
+  }
   return {
     id: uid(),
     name: file.name,
-    type: file.type,
-    size: file.size,
+    type,
+    size: isImage ? dataUrlByteSize(dataUrl) : file.size,
     isImage,
     dataUrl,
   }
@@ -63,7 +70,9 @@ export default function FileUpload({ label, value, onChange }) {
         <p className="text-sm text-slate-600">
           Click to upload or drag &amp; drop images / documents
         </p>
-        <p className="text-xs text-slate-400 mt-1">Max {MAX_FILE_MB}MB per file</p>
+        <p className="text-xs text-slate-400 mt-1">
+          Images are auto-compressed; {MAX_FILE_MB}MB max for other files
+        </p>
         <input
           ref={inputRef}
           type="file"

@@ -150,8 +150,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-5 flex items-center gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="card p-5 flex items-center gap-4 col-span-2 sm:col-span-1">
           <div className="w-11 h-11 rounded-lg bg-primary-50 flex items-center justify-center">
             <Stethoscope className="w-6 h-6 text-primary-600" />
           </div>

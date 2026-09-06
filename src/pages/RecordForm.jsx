@@ -3,24 +3,38 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Save, X } from 'lucide-react'
 import { useLive, db } from '../lib/db.js'
 import { toLocalISO } from '../lib/date.js'
+import { buildDiagnosis, TAG_TYPES } from '../lib/format.js'
 import Combobox from '../components/Combobox.jsx'
+import MultiSelect from '../components/MultiSelect.jsx'
 import FileUpload from '../components/FileUpload.jsx'
 
 const emptyForm = {
   date: toLocalISO(),
   patientName: '',
-  age: '',
-  diagnosis: '',
+  ageYears: '',
+  ageMonths: '',
+  ageDays: '',
   ot: null,
   assistPosition: null,
   consultant: null,
+  indication: null,
+  comorbidities: [],
+  preHistories: [],
+  diagnosis: '',
   attachments: [],
+}
+
+const clampNum = (v, min, max) => {
+  const n = v === '' ? '' : Number(v)
+  if (n === '') return ''
+  if (Number.isNaN(n)) return ''
+  return Math.max(min, Math.min(max, Math.trunc(n))).toString()
 }
 
 export default function RecordForm() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { consultants, ots, positions } = useLive()
+  const { consultants, ots, positions, tags } = useLive()
   const isEdit = Boolean(id)
 
   const [form, setForm] = useState(() => ({
@@ -30,22 +44,27 @@ export default function RecordForm() {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
 
+  const tagsOf = (type) => tags.filter((t) => t.type === type)
+
   useEffect(() => {
     if (isEdit) {
       const rec = db.records.find((r) => r.id === id)
       if (rec) {
         setForm({
+          ...emptyForm,
           date: rec.date || '',
           patientName: rec.patientName || '',
-          age: rec.age ?? '',
-          diagnosis: rec.diagnosis || '',
-          ot: rec.otId ? { id: rec.otId, name: rec.otName } : null,
-          assistPosition: rec.assistPositionId
+          ageYears: rec.ageYears != null ? rec.ageYears : rec.age ?? '',
+          ageMonths: rec.ageMonths ?? '',
+          ageDays: rec.ageDays ?? '',
+          ot: rec.otName ? { id: rec.otId, name: rec.otName } : null,
+          assistPosition: rec.assistPositionName
             ? { id: rec.assistPositionId, name: rec.assistPositionName }
             : null,
           consultant: rec.consultantId
             ? { id: rec.consultantId, name: rec.consultantName }
             : null,
+          diagnosis: rec.diagnosis || '',
           attachments: rec.attachments || [],
         })
       }
@@ -58,14 +77,44 @@ export default function RecordForm() {
     setErrors((er) => ({ ...er, [field]: undefined }))
   }
 
+  const setAge = (field) => (e) =>
+    setForm((f) => ({
+      ...f,
+      [field]: clampNum(e.target.value, 0, field === 'ageYears' ? 120 : field === 'ageMonths' ? 11 : 30),
+    }))
+
+  const rebuildSentence = (next, source) => {
+    const sentence = buildDiagnosis({
+      indication: next.indication ?? source.indication ?? '',
+      comorbidities: next.comorbidities ?? source.comorbidities ?? [],
+      preHistories: next.preHistories ?? source.preHistories ?? [],
+    })
+    return { ...next, diagnosis: sentence }
+  }
+
+  const setIndication = (opt) =>
+    setForm((f) => {
+      const next = { ...f, indication: opt?.name ?? null }
+      return { ...rebuildSentence(next, f), indication: next.indication }
+    })
+
+  const setComorbidities = (names) =>
+    setForm((f) => rebuildSentence({ ...f, comorbidities: names }, f))
+
+  const setPreHistories = (names) =>
+    setForm((f) => rebuildSentence({ ...f, preHistories: names }, f))
+
   const validate = () => {
     const er = {}
     if (!form.date) er.date = 'Date is required'
-    if (!form.patientName.trim()) er.patientName = 'Patient name is required'
-    if (form.age === '' || form.age < 0 || form.age > 120)
-      er.age = 'Enter a valid age'
     if (!form.ot) er.ot = 'OT is required'
-    if (!form.consultant) er.consultant = 'Consultant is required'
+    if (!form.consultant) er.consultant = 'Consultant / Surgeon is required'
+    if (form.ageYears !== '' && (form.ageYears < 0 || form.ageYears > 120))
+      er.age = 'Enter a valid age'
+    if (form.ageMonths !== '' && (form.ageMonths < 0 || form.ageMonths > 11))
+      er.age = 'Months must be 0–11'
+    if (form.ageDays !== '' && (form.ageDays < 0 || form.ageDays > 30))
+      er.age = 'Days must be 0–30'
     return er
   }
 
@@ -79,7 +128,9 @@ export default function RecordForm() {
     const payload = {
       date: form.date,
       patientName: form.patientName.trim(),
-      age: Number(form.age),
+      ageYears: form.ageYears === '' ? null : Number(form.ageYears),
+      ageMonths: form.ageMonths === '' ? null : Number(form.ageMonths),
+      ageDays: form.ageDays === '' ? null : Number(form.ageDays),
       diagnosis: form.diagnosis.trim(),
       otId: form.ot.id,
       otName: form.ot.name,
@@ -107,8 +158,9 @@ export default function RecordForm() {
         <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-3">
           Surgery Details
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-3">
             <label className="label">
               Date <span className="text-red-500">*</span>
             </label>
@@ -122,10 +174,8 @@ export default function RecordForm() {
               <p className="text-xs text-red-600 mt-1">{errors.date}</p>
             )}
           </div>
-          <div>
-            <label className="label">
-              Patient Name <span className="text-red-500">*</span>
-            </label>
+          <div className="md:col-span-5">
+            <label className="label">Patient Name (optional)</label>
             <input
               type="text"
               className="input"
@@ -133,38 +183,51 @@ export default function RecordForm() {
               value={form.patientName}
               onChange={set('patientName')}
             />
-            {errors.patientName && (
-              <p className="text-xs text-red-600 mt-1">{errors.patientName}</p>
-            )}
           </div>
-          <div>
-            <label className="label">
-              Age <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="120"
-              className="input"
-              placeholder="Years"
-              value={form.age}
-              onChange={set('age')}
-            />
+          <div className="md:col-span-4">
+            <label className="label">Age (optional)</label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  inputMode="numeric"
+                  className="input"
+                  placeholder="Years"
+                  value={form.ageYears}
+                  onChange={setAge('ageYears')}
+                />
+              </div>
+              <div className="flex-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="11"
+                  inputMode="numeric"
+                  className="input"
+                  placeholder="Months"
+                  value={form.ageMonths}
+                  onChange={setAge('ageMonths')}
+                />
+              </div>
+              <div className="flex-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  inputMode="numeric"
+                  className="input"
+                  placeholder="Days"
+                  value={form.ageDays}
+                  onChange={setAge('ageDays')}
+                />
+              </div>
+            </div>
             {errors.age && (
               <p className="text-xs text-red-600 mt-1">{errors.age}</p>
             )}
           </div>
-        </div>
-
-        <div>
-          <label className="label">Diagnosis</label>
-          <textarea
-            rows={3}
-            className="input !h-auto py-2.5 resize-y"
-            placeholder="Diagnosis / operative findings / notes…"
-            value={form.diagnosis}
-            onChange={set('diagnosis')}
-          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -190,7 +253,7 @@ export default function RecordForm() {
             onAdd={(name) => db.addPosition(name)}
           />
           <Combobox
-            label="Consultant"
+            label="Consultant / Surgeon"
             required
             placeholder="Select or add consultant"
             options={consultants}
@@ -210,6 +273,54 @@ export default function RecordForm() {
         {errors.consultant && (
           <p className="text-xs text-red-600 -mt-2">{errors.consultant}</p>
         )}
+      </div>
+
+      <div className="card p-6 space-y-5">
+        <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-3">
+          Diagnosis
+        </h2>
+        <p className="text-xs text-slate-500 -mt-2">
+          Choose values below — they combine into a diagnosis sentence you can
+          still edit.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Combobox
+            label="Diagnosis indication"
+            placeholder="Select or add indication"
+            options={tagsOf(TAG_TYPES.indication)}
+            value={
+              form.indication
+                ? { id: 'sel', name: form.indication }
+                : null
+            }
+            onChange={setIndication}
+            onAdd={(name) => db.addTag(TAG_TYPES.indication, name)}
+          />
+          <MultiSelect
+            label="Comorbidities"
+            options={tagsOf(TAG_TYPES.comorbidity)}
+            selected={form.comorbidities}
+            onChange={setComorbidities}
+            onAdd={(name) => db.addTag(TAG_TYPES.comorbidity, name)}
+          />
+          <MultiSelect
+            label="Pre-history"
+            options={tagsOf(TAG_TYPES.prehistory)}
+            selected={form.preHistories}
+            onChange={setPreHistories}
+            onAdd={(name) => db.addTag(TAG_TYPES.prehistory, name)}
+          />
+        </div>
+        <div>
+          <label className="label">Diagnosis sentence (editable)</label>
+          <textarea
+            rows={3}
+            className="input !h-auto py-2.5 resize-y"
+            placeholder="The sentence is built here automatically…"
+            value={form.diagnosis}
+            onChange={set('diagnosis')}
+          />
+        </div>
       </div>
 
       <div className="card p-6">

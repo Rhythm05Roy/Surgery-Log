@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Save, X, Camera } from 'lucide-react'
 import { db } from '../lib/db.js'
 import PhoneInput from '../components/PhoneInput.jsx'
+import { compressImage, PHOTO_MAX_EDGE } from '../lib/image.js'
 
-const MAX_IMAGE_MB = 5
+const MAX_IMAGE_MB = 40
 
 const emptyForm = {
   name: '',
@@ -37,7 +38,7 @@ export default function ConsultantForm() {
   const set = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  const onPhoto = (file) => {
+  const onPhoto = async (file) => {
     setError(null)
     if (!file) return
     if (!file.type.startsWith('image/')) {
@@ -48,9 +49,18 @@ export default function ConsultantForm() {
       setError(`Image must be under ${MAX_IMAGE_MB}MB`)
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => setForm((f) => ({ ...f, photo: reader.result }))
-    reader.readAsDataURL(file)
+    const rawDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    try {
+      const photo = await compressImage(rawDataUrl, { maxEdge: PHOTO_MAX_EDGE })
+      setForm((f) => ({ ...f, photo }))
+    } catch {
+      setError('Could not process that image.')
+    }
   }
 
   const submit = async (e) => {
@@ -124,7 +134,7 @@ export default function ConsultantForm() {
               </button>
             )}
             <p className="text-xs text-slate-400 mt-1.5">
-              JPG/PNG up to {MAX_IMAGE_MB}MB
+              Auto-compressed (large photos OK)
             </p>
             <input
               ref={fileRef}

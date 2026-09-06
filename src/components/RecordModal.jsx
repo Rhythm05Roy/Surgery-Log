@@ -1,6 +1,7 @@
 import { X, Pencil, Paperclip, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAttachment, openAttachment } from '../lib/hooks.js'
+import { ageLabel } from '../lib/format.js'
 
 export default function RecordModal({ record, onClose }) {
   const navigate = useNavigate()
@@ -38,11 +39,11 @@ export default function RecordModal({ record, onClose }) {
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Date" value={record.date} />
-            <Field label="Age" value={`${record.age} years`} />
+            <Field label="Age" value={ageLabel(record) || '—'} />
             <Field label="Patient Name" value={record.patientName} />
             <Field label="OT Name" value={record.otName} />
             <Field label="Assist Position" value={record.assistPositionName || '—'} />
-            <Field label="Consultant" value={record.consultantName} />
+            <Field label="Consultant/Surgeon" value={record.consultantName} />
           </div>
 
           <div>

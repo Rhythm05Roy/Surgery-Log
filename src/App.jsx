@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { isRouteActive } from './lib/nav.js'
 import { supabase } from './lib/supabase.js'
 import {
   LayoutDashboard,
   ClipboardList,
   ClipboardPlus,
-  Building2,
+  ListPlus,
   Users,
   Settings,
   Scissors,
@@ -25,13 +25,13 @@ import ConsultantDetail from './pages/ConsultantDetail.jsx'
 import ConsultantForm from './pages/ConsultantForm.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
-import OtsPage from './pages/OtsPage.jsx'
+import ListsPage from './pages/ListsPage.jsx'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/records/new', label: 'New Surgery', icon: ClipboardPlus },
   { to: '/records', label: 'Surgery Log', icon: ClipboardList },
-  { to: '/ot-positions', label: 'OT & Positions', icon: Building2 },
+  { to: '/lists', label: 'Lists', icon: ListPlus },
   { to: '/consultants', label: 'Consultants', icon: Users },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
@@ -39,7 +39,7 @@ const nav = [
 function Brand() {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
+      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 shadow-lg shadow-primary-600/30 flex items-center justify-center shrink-0">
         <Scissors className="w-5 h-5 text-white" />
       </div>
       <div className="min-w-0 leading-tight">
@@ -186,15 +186,15 @@ function Shell() {
   if (p === '/') title = 'Dashboard'
   else if (p === '/records/new') title = 'New Surgery Entry'
   else if (p.startsWith('/records')) title = 'Surgery Log'
-  else if (p.startsWith('/ot-positions')) title = 'OT & Positions'
+  else if (p === '/lists') title = 'Manage Lists'
   else if (p === '/consultants/new') title = 'Add Consultant'
   else if (p.startsWith('/consultants')) title = 'Consultants'
   else if (p === '/profile') title = 'My Profile'
   else if (p === '/settings') title = 'Settings'
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="lg:hidden sticky top-0 z-30 bg-slate-900 text-slate-300 shadow-lg shadow-slate-900/10">
+    <div className="min-h-screen">
+      <header className="lg:hidden sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md text-slate-300 shadow-lg shadow-slate-900/10">
         <div className="pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between gap-3 px-4 h-14">
             <button
@@ -230,7 +230,7 @@ function Shell() {
       </header>
 
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen bg-slate-900 text-slate-300">
+        <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen bg-gradient-to-b from-slate-900 to-slate-950 text-slate-300">
           <div className="px-5 py-5 border-b border-slate-800">
             <Brand />
           </div>
@@ -246,7 +246,7 @@ function Shell() {
 
         <main className="flex-1 min-w-0">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] lg:pb-8">
-            <h1 className="text-2xl font-semibold text-slate-900 mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 mb-6">
               {title}
             </h1>
             <Routes>
@@ -266,8 +266,24 @@ function Shell() {
               />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/ot-positions" element={<OtsPage />} />
+              <Route path="/ot-positions" element={<Navigate to="/lists" replace />} />
+              <Route path="/lists" element={<ListsPage />} />
             </Routes>
+
+            <footer className="mt-10 pt-5 border-t border-slate-200/70 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+              <span>© {new Date().getFullYear()} OT Log · Surgery Records</span>
+              <span className="flex items-center gap-1">
+                Developed by
+                <span className="font-medium text-slate-500">Ridam Roy</span>
+                <span aria-hidden="true">·</span>
+                <a
+                  href="mailto:rhythmroy03@gmail.com"
+                  className="text-primary-600 hover:text-primary-700 hover:underline"
+                >
+                  rhythmroy03@gmail.com
+                </a>
+              </span>
+            </footer>
           </div>
         </main>
       </div>
@@ -279,7 +295,7 @@ function Shell() {
             onClick={() => setDrawerOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-slate-900 text-slate-300 flex flex-col shadow-2xl">
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-gradient-to-b from-slate-900 to-slate-950 text-slate-300 flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
               <Brand />
               <button

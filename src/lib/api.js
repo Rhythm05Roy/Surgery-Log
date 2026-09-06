@@ -33,6 +33,8 @@ export function recordFromDB(r) {
     date: r.record_date,
     patientName: r.patient_name,
     age: r.age,
+    ageMonths: r.age_months ?? null,
+    ageDays: r.age_days ?? null,
     diagnosis: r.diagnosis,
     otName: r.ot_name,
     assistPositionName: r.assist_position_name,
@@ -48,7 +50,9 @@ export function recordToDB(r) {
   return {
     record_date: r.date,
     patient_name: r.patientName,
-    age: r.age ?? null,
+    age: r.ageYears ?? r.age ?? null,
+    age_months: r.ageMonths ?? null,
+    age_days: r.ageDays ?? null,
     diagnosis: r.diagnosis ?? '',
     ot_name: r.otName ?? '',
     assist_position_name: r.assistPositionName ?? '',
@@ -213,6 +217,15 @@ export async function listNames(table) {
     .order('created_at', { ascending: true })
   if (error) throw error
   return (data || []).map(listFromDB)
+}
+
+export async function listTags() {
+  const { data, error } = await supabase
+    .from('tags')
+    .select('id, type, name')
+    .order('name', { ascending: true })
+  if (error) throw error
+  return (data || []).map((r) => ({ id: r.id, type: r.type, name: r.name }))
 }
 
 export async function insertRow(table, value) {

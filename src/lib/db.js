@@ -7,6 +7,7 @@ import {
   listRecords,
   listConsultants,
   listNames,
+  listTags,
   insertRow,
   updateRow,
   deleteRow,
@@ -29,6 +30,7 @@ let cache = {
   consultants: [],
   ots: [],
   positions: [],
+  tags: [],
   profile: null,
 }
 
@@ -48,7 +50,13 @@ async function refreshAll() {
     listNames('positions'),
     fetchProfile(user.id),
   ])
-  cache = { records, consultants, ots, positions, profile }
+  let tags = []
+  try {
+    tags = await listTags()
+  } catch (err) {
+    console.warn('tags unavailable (run supabase/schema.sql):', err?.message)
+  }
+  cache = { records, consultants, ots, positions, tags, profile }
 }
 
 /* Re-fetch and publish. */
@@ -83,11 +91,53 @@ export const db = {
   get positions() {
     return cache.positions
   },
+  get tags() {
+    return cache.tags
+  },
   get profile() {
     return cache.profile
   },
 
   async refresh() {
+    await reload()
+  },
+
+  async addTag(type, name) {
+    const trimmed = (name || '').trim()
+    if (!trimmed) return null
+    const existing = cache.tags.find(
+      (t) => t.type === type && t.name.toLowerCase() === trimmed.toLowerCase(),
+    )
+    if (existing) return existing
+    const created = await insertRow('tags', {
+      user_id: user.id,
+      type,
+      name: trimmed,
+    })
+    await reload()
+    return { id: created.id, type, name: trimmed }
+  },
+
+  async updateTag(id, newName) {
+    const trimmed = (newName || '').trim()
+    if (!trimmed) throw new Error('Name is required')
+    const old = cache.tags.find((t) => t.id === id)
+    if (!old) return
+    if (
+      cache.tags.some(
+        (t) =>
+          t.id !== id &&
+          t.type === old.type &&
+          t.name.toLowerCase() === trimmed.toLowerCase(),
+      )
+    )
+      throw new Error('An item with that name already exists')
+    await updateRow('tags', id, { name: trimmed })
+    await reload()
+  },
+
+  async deleteTag(id) {
+    await deleteRow('tags', id)
     await reload()
   },
 
@@ -193,6 +243,29 @@ export const db = {
     return listFromDB(created)
   },
 
+  async updateOT(id, newName) {
+    const trimmed = (newName || '').trim()
+    if (!trimmed) throw new Error('Name is required')
+    const old = cache.ots.find((o) => o.id === id)
+    if (!old) return
+    if (
+      cache.ots.some(
+        (o) => o.id !== id && o.name.toLowerCase() === trimmed.toLowerCase(),
+      )
+    )
+      throw new Error('An OT with that name already exists')
+    await updateRow('ots', id, { name: trimmed })
+    if (old.name !== trimmed) {
+      const { error } = await supabase
+        .from('records')
+        .update({ ot_name: trimmed })
+        .eq('user_id', user.id)
+        .eq('ot_name', old.name)
+      if (error) console.error('OT rename propagation failed', error)
+    }
+    await reload()
+  },
+
   async deleteOT(id) {
     await deleteRow('ots', id)
     await reload()
@@ -208,6 +281,29 @@ export const db = {
     const created = await insertRow('positions', { user_id: user.id, name: trimmed })
     await reload()
     return listFromDB(created)
+  },
+
+  async updatePosition(id, newName) {
+    const trimmed = (newName || '').trim()
+    if (!trimmed) throw new Error('Name is required')
+    const old = cache.positions.find((p) => p.id === id)
+    if (!old) return
+    if (
+      cache.positions.some(
+        (p) => p.id !== id && p.name.toLowerCase() === trimmed.toLowerCase(),
+      )
+    )
+      throw new Error('A position with that name already exists')
+    await updateRow('positions', id, { name: trimmed })
+    if (old.name !== trimmed) {
+      const { error } = await supabase
+        .from('records')
+        .update({ assist_position_name: trimmed })
+        .eq('user_id', user.id)
+        .eq('assist_position_name', old.name)
+      if (error) console.error('Position rename propagation failed', error)
+    }
+    await reload()
   },
 
   async deletePosition(id) {
@@ -228,6 +324,7 @@ export const db = {
       })),
       ots: cache.ots,
       positions: cache.positions,
+      tags: cache.tags,
       profile: cache.profile
         ? { ...cache.profile, photo: cache.profile.photoPath, photoPath: undefined }
         : null,
@@ -280,6 +377,7 @@ async function importBackup(data) {
   await wipe('consultants')
   await wipe('ots')
   await wipe('positions')
+  await wipe('tags')
 
   const consultantIdMap = {}
   for (const c of data.consultants || []) {
@@ -328,6 +426,14 @@ async function importBackup(data) {
     }
   }
 
+  for (const tag of data.tags || []) {
+    if (!tag.type || !tag.name) continue
+    const { error: insErr } = await supabase
+      .from('tags')
+      .insert({ user_id: user.id, type: tag.type, name: tag.name })
+    if (insErr) throw insErr
+  }
+
   const profile = data.profile
   if (profile) {
     let photoPath = null
@@ -364,6 +470,7 @@ function initializer() {
     consultants: cache.consultants,
     ots: cache.ots,
     positions: cache.positions,
+    tags: cache.tags,
     profile: cache.profile,
   }
 }
