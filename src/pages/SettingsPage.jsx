@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, Database } from 'lucide-react'
+import { Upload, Database, FileSpreadsheet } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { db } from '../lib/db.js'
+import {
+  recordsToCsv,
+  consultantsToCsv,
+  downloadFile,
+  dateStamp,
+} from '../lib/exportData.js'
 
 export default function SettingsPage() {
   const importRef = useRef(null)
@@ -72,24 +78,55 @@ export default function SettingsPage() {
             <Database className="w-5 h-5 text-violet-600" />
           </div>
           <h2 className="text-base font-semibold text-slate-900">
-            Data Backup
+            Data &amp; Backups
           </h2>
         </div>
-        <p className="text-sm text-slate-500 mt-1 mb-5">
-          Your data is stored in the cloud under your account. Export a JSON
-          backup regularly and keep it somewhere safe — you can restore it
-          here at any time.
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          Export spreadsheets for Excel, or take a full JSON backup you can
+          restore here at any time.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <button onClick={exportData} className="btn-primary" disabled={busy}>
-            <Download className="w-4 h-4" /> Export Backup
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            onClick={() =>
+              downloadFile(
+                `ot-log-records-${dateStamp()}.csv`,
+                recordsToCsv(db.records),
+              )
+            }
+            className="btn-outline h-auto !py-3 flex-col gap-1.5"
+            disabled={busy}
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <span className="text-xs">Records</span>
+            <span className="text-[11px] text-slate-400 font-normal">CSV / Excel</span>
           </button>
+          <button
+            onClick={() =>
+              downloadFile(
+                `ot-log-consultants-${dateStamp()}.csv`,
+                consultantsToCsv(db.consultants),
+              )
+            }
+            className="btn-outline h-auto !py-3 flex-col gap-1.5"
+            disabled={busy}
+          >
+            <FileSpreadsheet className="w-5 h-5 text-sky-600" />
+            <span className="text-xs">Consultants</span>
+            <span className="text-[11px] text-slate-400 font-normal">CSV / Excel</span>
+          </button>
+          <button onClick={exportData} className="btn-outline h-auto !py-3 flex-col gap-1.5" disabled={busy}>
+            <Database className="w-5 h-5 text-violet-600" />
+            <span className="text-xs">Full Backup</span>
+            <span className="text-[11px] text-slate-400 font-normal">JSON (restore)</span>
+          </button>
+        </div>
+        <div className="mt-3">
           <button
             onClick={() => importRef.current?.click()}
             className="btn-outline"
             disabled={busy}
           >
-            <Upload className="w-4 h-4" /> Import Backup
+            <Upload className="w-4 h-4" /> Import JSON Backup
           </button>
           <input
             ref={importRef}
