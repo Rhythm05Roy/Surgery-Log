@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { Stethoscope, CalendarDays, Plus, TrendingUp, UserRound } from 'lucide-react'
 import { useLive, db } from '../lib/db.js'
@@ -206,67 +206,112 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72">
+          <div className="min-w-0">
             <h3 className="text-xs font-medium text-slate-500 mb-2">
               Share of Surgeries (%)
             </h3>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={counts}
-                  dataKey="count"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={95}
-                  paddingAngle={2}
-                >
-                  {counts.map((entry, i) => (
-                    <Cell
-                      key={entry.name}
-                      fill={COLORS[i % COLORS.length]}
-                      stroke="#fff"
-                      strokeWidth={2}
-                      onClick={() => setSelectedOT(
-                        selectedOT === entry.name ? 'all' : entry.name,
-                      )}
-                      className="cursor-pointer"
+            <div className="flex flex-col sm:flex-row items-stretch gap-4">
+              <div className="h-56 sm:h-64 w-full sm:w-auto sm:flex-1 sm:min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={counts}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={95}
+                      paddingAngle={2}
+                    >
+                      {counts.map((entry, i) => (
+                        <Cell
+                          key={entry.name}
+                          fill={COLORS[i % COLORS.length]}
+                          stroke="#fff"
+                          strokeWidth={2}
+                          onClick={() => setSelectedOT(
+                            selectedOT === entry.name ? 'all' : entry.name,
+                          )}
+                          className="cursor-pointer"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [
+                        `${value} (${(
+                          (value / Math.max(total, 1)) * 100
+                        ).toFixed(1)}%)`,
+                        name,
+                      ]}
                     />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name) => [
-                    `${value} (${(
-                      (value / Math.max(total, 1)) * 100
-                    ).toFixed(1)}%)`,
-                    name,
-                  ]}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 12 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="w-full sm:w-52 shrink-0 max-h-44 sm:max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/70 p-2">
+                <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide px-1 pb-1.5">
+                  Legend
+                </h4>
+                <ul className="space-y-1">
+                  {counts.map((entry, i) => {
+                    const dimmed = selectedOT !== 'all' && selectedOT !== entry.name
+                    const active = selectedOT === entry.name
+                    return (
+                      <li key={entry.name}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedOT(active ? 'all' : entry.name)
+                          }
+                          title={`${entry.name}: ${entry.count} surgeries`}
+                          className={`w-full flex items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors ${
+                            active
+                              ? 'bg-white ring-1 ring-primary-200'
+                              : dimmed
+                                ? 'opacity-45 hover:opacity-80'
+                                : 'hover:bg-white'
+                          }`}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                          />
+                          <span className="flex-1 min-w-0 text-xs text-slate-700 truncate">
+                            {entry.name}
+                          </span>
+                          <span className="text-[11px] text-slate-500 shrink-0">
+                            {entry.count}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
           </div>
 
-          <div className="h-72">
+          <div className="min-w-0">
             <h3 className="text-xs font-medium text-slate-500 mb-2">
               Surgeries per OT
             </h3>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filteredCounts} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  interval={0}
-                  angle={filteredCounts.length > 5 ? -20 : 0}
-                  textAnchor={filteredCounts.length > 5 ? 'end' : 'middle'}
-                />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+            <div className="h-56 sm:h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={filteredCounts} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    interval={0}
+                    height={filteredCounts.length > 3 ? 44 : 24}
+                    angle={filteredCounts.length > 3 ? -28 : 0}
+                    textAnchor={filteredCounts.length > 3 ? 'end' : 'middle'}
+                    tickFormatter={(v) =>
+                      v.length > 14 ? v.slice(0, 13) + '…' : v
+                    }
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                 <Tooltip cursor={{ fill: 'rgba(31, 95, 232, 0.06)' }} />
                 <Bar dataKey="count" name="Surgeries" radius={[6, 6, 0, 0]} maxBarSize={48}>
                   {filteredCounts.map((entry, i) => (
@@ -282,6 +327,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+    </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
