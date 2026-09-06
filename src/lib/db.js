@@ -111,6 +111,7 @@ export const db = {
 
   async addRecord(form) {
     const row = {
+      user_id: user.id,
       ...recordToDB(form),
       attachments: await storeAttachments(form.attachments),
     }
@@ -143,7 +144,7 @@ export const db = {
 
   async addConsultant(consultantForm) {
     const item = { id: uid(), ...consultantForm }
-    const row = consultantToDB(item)
+    const row = { user_id: user.id, ...consultantToDB(item) }
     if (typeof item.photo === 'string' && item.photo.startsWith('data:')) {
       row.photo_path = await uploadDataUrl(user.id, 'consultants', item.photo, 'photo.jpg')
     }
@@ -187,7 +188,7 @@ export const db = {
     if (!trimmed) return null
     const existing = cache.ots.find((o) => o.name.toLowerCase() === trimmed.toLowerCase())
     if (existing) return existing
-    const created = await insertRow('ots', { name: trimmed })
+    const created = await insertRow('ots', { user_id: user.id, name: trimmed })
     await reload()
     return listFromDB(created)
   },
@@ -204,7 +205,7 @@ export const db = {
       (p) => p.name.toLowerCase() === trimmed.toLowerCase(),
     )
     if (existing) return existing
-    const created = await insertRow('positions', { name: trimmed })
+    const created = await insertRow('positions', { user_id: user.id, name: trimmed })
     await reload()
     return listFromDB(created)
   },
@@ -291,6 +292,7 @@ async function importBackup(data) {
     const { data: created, error } = await supabase
       .from('consultants')
       .insert({
+        user_id: user.id,
         ...consultantToDB({ ...c, photoPath }),
       })
       .select('id, name')
@@ -304,6 +306,7 @@ async function importBackup(data) {
       ownedOnly: true,
     })
     const row = {
+      user_id: user.id,
       ...recordToDB({
         ...r,
         date: r.date || r.record_date,
@@ -318,7 +321,9 @@ async function importBackup(data) {
   for (const table of ['ots', 'positions']) {
     for (const item of data[table] || []) {
       if (!item.name) continue
-      const { error: insErr } = await supabase.from(table).insert({ name: item.name })
+      const { error: insErr } = await supabase
+        .from(table)
+        .insert({ user_id: user.id, name: item.name })
       if (insErr) throw insErr
     }
   }
